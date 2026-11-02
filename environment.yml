@@ -1,0 +1,15 @@
+name: lod-pipeline
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - python>=3.10,<3.13
+  - lofreq
+  - vardict-java
+  - samtools
+  - bcftools
+  - pandas
+  - matplotlib
+  - scipy
+  - numpy
