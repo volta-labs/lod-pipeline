@@ -2,16 +2,19 @@
 nextflow.enable.dsl = 2
 
 // ── Parameters ────────────────────────────────────────────────────────────────
-params.bam_dir  = null   // required: S3 folder containing *_aligned_sorted.bam files
-params.ref      = null   // required: S3 path to hg38 FASTA (+ .fai in same folder)
-params.bed      = 's3://volta-labs-sequencing-data/reference-genome-index/hybrid-capture-target-files/SG_MSKACCESSFLEX_v1_target_hg38.bed'
-params.outdir   = null   // required: S3 output path
-params.min_vaf  = 0.001  // minimum VAF threshold (0.1%)
-params.min_cov  = 5      // minimum read depth to call
+params.bam_dir   = null   // required: S3 folder containing *_aligned_sorted.bam files
+params.ref       = null   // required: S3 path to hg38 FASTA (+ .fai in same folder)
+params.bed       = null   // required: S3 path to target BED (hg38)
+params.gc_cache  = null   // required: S3 path to GC content cache CSV (chrom,start,end,gc)
+params.outdir    = null   // required: S3 output path
+params.min_vaf   = 0.001  // minimum VAF threshold (0.1%)
+params.min_cov   = 5      // minimum read depth to call
 
-if (!params.bam_dir) { error "Please provide --bam_dir <s3://bucket/path/to/bams/>" }
-if (!params.ref)     { error "Please provide --ref <s3://bucket/path/to/hg38.fasta>" }
-if (!params.outdir)  { error "Please provide --outdir <s3://bucket/path/>" }
+if (!params.bam_dir)  { error "Please provide --bam_dir <s3://bucket/path/to/bams/>" }
+if (!params.ref)      { error "Please provide --ref <s3://bucket/path/to/hg38.fasta>" }
+if (!params.bed)      { error "Please provide --bed <s3://bucket/path/to/target.bed>" }
+if (!params.gc_cache) { error "Please provide --gc_cache <s3://bucket/path/to/gc_cache.csv>" }
+if (!params.outdir)   { error "Please provide --outdir <s3://bucket/path/>" }
 
 // ── Process: LoFreq ───────────────────────────────────────────────────────────
 process LOFREQ {
