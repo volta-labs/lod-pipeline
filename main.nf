@@ -51,8 +51,9 @@ process LOFREQ {
     lofreq indelqual --dindel -f ${ref_file} ${bam} -o indelqual.bam
     samtools index indelqual.bam
 
-    # Call variants (single-threaded; call-parallel has a macOS bgzip bug)
-    lofreq call \\
+    # Call variants in parallel (Linux/AWS Batch only — call-parallel has a bgzip bug on macOS)
+    lofreq call-parallel \\
+        --pp-threads ${task.cpus} \\
         -f ${ref_file} \\
         -l normalised.bed \\
         --call-indels \\
