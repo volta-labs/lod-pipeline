@@ -175,16 +175,16 @@ workflow {
     if (!params.samplesheet) { error "Please provide --samplesheet <s3://bucket/path/to/samplesheet.csv>" }
     if (!params.outdir)      { error "Please provide --outdir <s3://bucket/path/>" }
 
-    // Load samplesheet into a set of sample names to process
-    def sample_set = [] as Set
-    file(params.samplesheet).readLines().drop(1).each { line ->
-        def cols = line.split(',')
-        if (cols.size() >= 1) sample_set << cols[0].trim()
-    }
+    // Parse samplesheet lazily via channel operator (works with Fusion FS on S3 and local paths)
+    sample_names_ch = Channel.fromPath(params.samplesheet)
+        .splitCsv(header: true)
+        .map { row -> row.sample.trim() }
+        .collect()
+        .map { names -> names as Set }
 
     // Auto-discover BAMs; filter to only samples in samplesheet
     // Strip _aligned_sorted.bam suffix and _S\d+ Illumina index suffix (matches coverage-plots-nf)
-    Channel
+    bams_ch = Channel
         .fromPath("${params.bam_dir}/*.bam")
         .map { bam ->
             def sample = bam.name
@@ -193,8 +193,9 @@ workflow {
             def bai = bam.parent.resolve("${bam.name}.bai")
             tuple(sample, bam, bai)
         }
-        .filter { sample, bam, bai -> sample_set.contains(sample) }
-        .set { bams_ch }
+        .combine(sample_names_ch)
+        .filter { sample, bam, bai, names -> names.contains(sample) }
+        .map { sample, bam, bai, _names -> tuple(sample, bam, bai) }
 
     // Reference files (FASTA + .fai)
     ref_ch = Channel.fromPath("${params.ref}*").collect()
