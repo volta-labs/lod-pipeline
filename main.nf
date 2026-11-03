@@ -2,7 +2,7 @@
 nextflow.enable.dsl = 2
 
 // ── Parameters ────────────────────────────────────────────────────────────────
-params.bam_dir     = null   // required: S3 folder containing *_aligned_sorted.bam files
+params.bam_dir     = null   // required: S3 folder containing *.bam and *.bam.bai files
 params.ref         = null   // required: S3 path to hg38 FASTA (+ .fai in same folder)
 params.bed         = null   // required: S3 path to target BED (hg38)
 params.gc_cache    = null   // required: S3 path to GC content cache CSV (chrom,start,end,gc)
@@ -126,6 +126,7 @@ process LOD_CURVE {
     path(vardict_vcfs, stageAs: "staged_vardict/*")
     path(samplesheet)
     path(truth_set)
+    path(lod_script)   // staged explicitly from bin/ — avoids PATH issues in Wave containers
 
     output:
     path("pool_*/lod_curve.png")
@@ -140,7 +141,7 @@ process LOD_CURVE {
 
     # Run LOD curve analysis once per pool
     python3 << 'PYEOF'
-import csv, os, subprocess
+import csv, os, subprocess, sys
 
 pools = {}
 with open("${samplesheet}") as f:
@@ -158,7 +159,7 @@ for pool, pairs in sorted(pools.items()):
     samples_str = ",".join(pairs)
     print(f"Pool {pool}: {samples_str}", flush=True)
     subprocess.run([
-        "lod_curve.py",
+        sys.executable, "${lod_script}",
         "--vcf-dir",   "vcf_dir",
         "--truth-set", "${truth_set}",
         "--samples",   samples_str,
@@ -171,29 +172,41 @@ PYEOF
 // ── Workflow ──────────────────────────────────────────────────────────────────
 workflow {
 
-    // Auto-discover BAMs from bam_dir
+    // Load samplesheet into a set of sample names to process
+    def sample_set = [] as Set
+    file(params.samplesheet).readLines().drop(1).each { line ->
+        def cols = line.split(',')
+        if (cols.size() >= 1) sample_set << cols[0].trim()
+    }
+
+    // Auto-discover BAMs; filter to only samples in samplesheet
+    // Strip _aligned_sorted.bam suffix and _S\d+ Illumina index suffix (matches coverage-plots-nf)
     Channel
-        .fromPath("${params.bam_dir}/*_aligned_sorted.bam")
+        .fromPath("${params.bam_dir}/*.bam")
         .map { bam ->
-            def sample = bam.name.replaceAll(/_aligned_sorted\.bam$/, '')
-            def bai    = bam.parent.resolve("${bam.name}.bai")
+            def sample = bam.name
+                .replaceAll(/_aligned_sorted\.bam$/, '')
+                .replaceAll(/_S\d+$/, '')
+            def bai = bam.parent.resolve("${bam.name}.bai")
             tuple(sample, bam, bai)
         }
+        .filter { sample, bam, bai -> sample_set.contains(sample) }
         .set { bams_ch }
 
     // Reference files (FASTA + .fai)
     ref_ch = Channel.fromPath("${params.ref}*").collect()
 
-    // BED file
-    bed_ch = Channel.fromPath(params.bed)
+    // BED and GC cache
+    bed_ch = file(params.bed)
 
-    // Samplesheet
-    samplesheet_ch = Channel.fromPath(params.samplesheet)
+    // Samplesheet and truth set
+    samplesheet_ch = file(params.samplesheet)
+    truth_set_ch   = params.truth_set
+        ? file(params.truth_set)
+        : file("${projectDir}/seracare_v4_truth_set_hg38.csv")
 
-    // Truth set — use provided path or fall back to bundled file
-    truth_set_ch = params.truth_set
-        ? Channel.fromPath(params.truth_set)
-        : Channel.fromPath("${projectDir}/seracare_v4_truth_set_hg38.csv")
+    // LOD curve script — staged explicitly so PATH is not needed in Wave containers
+    lod_script_ch = file("${projectDir}/bin/lod_curve.py")
 
     // Run both callers in parallel for every sample
     LOFREQ(bams_ch, ref_ch, bed_ch)
@@ -203,5 +216,5 @@ workflow {
     lofreq_vcfs_ch = LOFREQ.out.vcf.map { sample, vcf -> vcf }.collect()
     vardict_vcfs_ch = VARDICT.out.vcf.map { sample, vcf -> vcf }.collect()
 
-    LOD_CURVE(lofreq_vcfs_ch, vardict_vcfs_ch, samplesheet_ch, truth_set_ch)
+    LOD_CURVE(lofreq_vcfs_ch, vardict_vcfs_ch, samplesheet_ch, truth_set_ch, lod_script_ch)
 }
