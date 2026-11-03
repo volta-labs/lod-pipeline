@@ -5,7 +5,7 @@ nextflow.enable.dsl = 2
 params.bam_dir     = null   // required: S3 folder containing *.bam and *.bam.bai files
 params.ref         = null   // required: S3 path to hg38 FASTA (+ .fai in same folder)
 params.bed         = null   // required: S3 path to target BED (hg38)
-params.gc_cache    = null   // required: S3 path to GC content cache CSV (chrom,start,end,gc)
+params.gc_cache    = null   // unused: reserved for future GC bias analysis
 params.samplesheet = null   // required: S3 path to samplesheet CSV (sample,condition,pool)
 params.truth_set   = null   // optional: S3 path to truth set CSV; defaults to bundled file
 params.outdir      = null   // required: S3 output path
@@ -171,7 +171,6 @@ workflow {
     if (!params.bam_dir)     { error "Please provide --bam_dir <s3://bucket/path/to/bams/>" }
     if (!params.ref)         { error "Please provide --ref <s3://bucket/path/to/hg38.fasta>" }
     if (!params.bed)         { error "Please provide --bed <s3://bucket/path/to/target.bed>" }
-    if (!params.gc_cache)    { error "Please provide --gc_cache <s3://bucket/path/to/gc_cache.csv>" }
     if (!params.samplesheet) { error "Please provide --samplesheet <s3://bucket/path/to/samplesheet.csv>" }
     if (!params.outdir)      { error "Please provide --outdir <s3://bucket/path/>" }
 
