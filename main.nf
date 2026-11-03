@@ -12,12 +12,6 @@ params.outdir      = null   // required: S3 output path
 params.min_vaf     = 0.001  // minimum VAF threshold (0.1%)
 params.min_cov     = 5      // minimum read depth to call
 
-if (!params.bam_dir)     { error "Please provide --bam_dir <s3://bucket/path/to/bams/>" }
-if (!params.ref)         { error "Please provide --ref <s3://bucket/path/to/hg38.fasta>" }
-if (!params.bed)         { error "Please provide --bed <s3://bucket/path/to/target.bed>" }
-if (!params.gc_cache)    { error "Please provide --gc_cache <s3://bucket/path/to/gc_cache.csv>" }
-if (!params.samplesheet) { error "Please provide --samplesheet <s3://bucket/path/to/samplesheet.csv>" }
-if (!params.outdir)      { error "Please provide --outdir <s3://bucket/path/>" }
 
 // ── Process: LoFreq ───────────────────────────────────────────────────────────
 process LOFREQ {
@@ -27,7 +21,7 @@ process LOFREQ {
 
     publishDir "${params.outdir}/lofreq/", mode: 'copy', overwrite: true
 
-    cpus   8
+    // cpus/memory/time set in nextflow.config per environment
     memory { 16.GB * task.attempt }
     errorStrategy { task.attempt <= 3 ? 'retry' : 'ignore' }
     maxRetries 3
@@ -73,7 +67,7 @@ process VARDICT {
 
     publishDir "${params.outdir}/vardict/", mode: 'copy', overwrite: true
 
-    cpus   8
+    // cpus/memory/time set in nextflow.config per environment
     memory { 16.GB * task.attempt }
     errorStrategy { task.attempt <= 3 ? 'retry' : 'ignore' }
     maxRetries 3
@@ -172,6 +166,14 @@ PYEOF
 
 // ── Workflow ──────────────────────────────────────────────────────────────────
 workflow {
+
+    // Validate required parameters
+    if (!params.bam_dir)     { error "Please provide --bam_dir <s3://bucket/path/to/bams/>" }
+    if (!params.ref)         { error "Please provide --ref <s3://bucket/path/to/hg38.fasta>" }
+    if (!params.bed)         { error "Please provide --bed <s3://bucket/path/to/target.bed>" }
+    if (!params.gc_cache)    { error "Please provide --gc_cache <s3://bucket/path/to/gc_cache.csv>" }
+    if (!params.samplesheet) { error "Please provide --samplesheet <s3://bucket/path/to/samplesheet.csv>" }
+    if (!params.outdir)      { error "Please provide --outdir <s3://bucket/path/>" }
 
     // Load samplesheet into a set of sample names to process
     def sample_set = [] as Set
