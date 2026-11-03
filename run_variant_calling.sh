@@ -99,7 +99,7 @@ for BAM in "${BAMS[@]}"; do
             -o "$INDELQUAL_BAM" \
             >> "$LOG" 2>&1
 
-        samtools index "$INDELQUAL_BAM" >> "$LOG" 2>&1
+        samtools index -b "$INDELQUAL_BAM" >> "$LOG" 2>&1
 
         echo "  [LoFreq] Calling variants (single-threaded, ~5-10 min)..."
         # Use lofreq call directly — call-parallel has a macOS bgzip bug in its

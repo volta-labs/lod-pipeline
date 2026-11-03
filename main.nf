@@ -22,7 +22,6 @@ process LOFREQ {
     publishDir "${params.outdir}/lofreq/", mode: 'copy', overwrite: true
 
     // cpus/memory/time set in nextflow.config per environment
-    memory { 16.GB * task.attempt }
     errorStrategy { task.attempt <= 3 ? 'retry' : 'ignore' }
     maxRetries 3
 
@@ -43,7 +42,7 @@ process LOFREQ {
 
     # Recalibrate indel qualities
     lofreq indelqual --dindel -f ${ref_file} ${bam} -o indelqual.bam
-    samtools index indelqual.bam
+    samtools index -b indelqual.bam
 
     # Call variants in parallel (Linux/AWS Batch only — call-parallel has a bgzip bug on macOS)
     lofreq call-parallel \\
@@ -68,7 +67,6 @@ process VARDICT {
     publishDir "${params.outdir}/vardict/", mode: 'copy', overwrite: true
 
     // cpus/memory/time set in nextflow.config per environment
-    memory { 16.GB * task.attempt }
     errorStrategy { task.attempt <= 3 ? 'retry' : 'ignore' }
     maxRetries 3
 
